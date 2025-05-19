@@ -165,46 +165,27 @@ if __name__ == "__main__":
       sys.exit(0)
 
    argParser = argparse.ArgumentParser()
-   argParser.add_argument("orders_filename", type=str, help="input filename with path")
-   argParser.add_argument("friday_pickups_filename", type=str, help="input filename with path")
-   argParser.add_argument("saturday_pickups_filename", type=str, help="input filename with path")
-   argParser.add_argument("delivery_filename", type=str, help="input filename with path")
+   argParser.add_argument("file_path", type=str, help="input filename with path", nargs='*')
 
    args = argParser.parse_args()
+   file_list= args.file_path
+   # print(f"{file_list=}")
 
-   if args.orders_filename is None:
-      sys.exit("Missing orders_filename.")
-   if not Path(args.orders_filename).is_file():
-      sys.exit("orders_filename is not a file.")
-   full_guest_dict = make_full_guest_dict(args.orders_filename)
-   if len(full_guest_dict) == 0:
-      sys.exit("Failure: orders_filename had no guests.")
-   if 0:
-      print(f"{full_guest_dict=}")
-      sys.exit(0)
-   
+   string_in_item_count_filename = "Visits"
    guest_filename_list = []
-   if args.friday_pickups_filename is None:
-      sys.exit("Missing friday_pickups_filename.")
-   elif Path(args.friday_pickups_filename).is_file():
-      guest_filename_list.append(args.friday_pickups_filename)
-   else:
-      sys.exit("friday_pickups_filename is not a file.")
-
-   if args.saturday_pickups_filename is None:
-      sys.exit("Missing saturday_pickups_filename.")
-   elif Path(args.saturday_pickups_filename).is_file():
-      guest_filename_list.append(args.saturday_pickups_filename)
-   else:
-      sys.exit("saturday_pickups_filename is not a file.")
-
-   if args.delivery_filename is None:
-      sys.exit("Missing delivery_filename.")
-   elif Path(args.delivery_filename).is_file():
-      guest_filename_list.append(args.delivery_filename)
-   else:
-      sys.exit("delivery_filename is not a file.")
-
+   for i in range(len(file_list)):
+      file_list[i] = Path(file_list[i])
+      if not file_list[i].is_file():
+         sys.exit(f"file_path {i} is not a file.")
+      if string_in_item_count_filename in str(file_list[i]):
+         full_guest_dict = make_full_guest_dict(file_list[i])
+         if len(full_guest_dict) == 0:
+            sys.exit("Failure: Visits... file had no guests.")
+         if 0:
+            print(f"{full_guest_dict=}")
+            sys.exit(0)
+      else:
+         guest_filename_list.append(file_list[i])
 
    guest_lists = [None] * len(guest_filename_list)
    for i in range(len(guest_filename_list)):
