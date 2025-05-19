@@ -85,25 +85,34 @@ def make_label_pdfs(guest_list, out_pdf_path):
    # PDF writing examples:
    #  https://medium.com/@mahijain9211/creating-a-python-class-for-generating-pdf-tables-from-a-pandas-dataframe-using-fpdf2-c0eb4b88355c
    #  https://py-pdf.github.io/fpdf2/Tutorial.html
-   font_size = 24
-   line_height = 24
+   route_font_size = 28 # allows longer names
+   name_font_size = 36
+   label_count_font_size = 12
+   label_height = 144 #points
+   label_width = 288
+
    try:
-      pdf = FPDF(orientation="L", unit="pt", format=(144,288)) # default units are mm; heigth, width are in points - 72 points = 1 inch
-      pdf.set_margins(0, 5, 0) #left, top, right in points
-      pdf.set_font("Helvetica", "B", size=font_size) # Arial not available in fpdf2
+      pdf = FPDF(orientation="L", unit="pt", format=(label_height,label_width))
+      pdf.set_margins(0, 6, 0) #left, top, right in points
+      pdf.set_auto_page_break(auto=False)
+      pdf.set_font("Helvetica", "B") # Arial not available in fpdf2
       for row in guest_list:
          label_count = item_count_to_label_count(row[3])
          for i in range(label_count):
             pdf.add_page()
             # if row[2] is a time, then don't print it; only print if it's a route
             if not (':' in row[2] and (' AM' in row[2] or ' PM' in row[2])):
-               pdf.cell(0, font_size, f"{row[2]}", align="L")
-            pdf.ln(line_height)
-            pdf.cell(0, font_size, f"{row[0]}", align="C")
-            pdf.ln(line_height)
-            pdf.cell(0, font_size, f"{row[1]}", align="C")
-            # pdf.ln(line_height)
-            # pdf.cell(0, font_size, f"{i+1} of {label_count}", align="R")
+               pdf.set_font_size(route_font_size)
+               pdf.cell(0, None, f"{row[2]}", align="L")
+               pdf.line(0, 36, label_width, 36) # line from left to right
+            pdf.ln(route_font_size+10)
+            pdf.set_font_size(name_font_size)
+            pdf.cell(0, None, f"{row[0]}", align="C")
+            pdf.ln(name_font_size+4)
+            pdf.cell(0, None, f"{row[1]}", align="C")
+            pdf.ln(name_font_size+4)
+            pdf.set_font_size(label_count_font_size)
+            pdf.cell(0, None, f"{i+1} of {label_count}", align="R")
       pdf.output(out_pdf_path)
 
    except Exception as e:
@@ -117,7 +126,6 @@ def test_label_pdfs(out_pdf_path):
    route_font_size = 28 # allows longer names
    name_font_size = 36
    item_count_font_size = 12
-   line_height = 36
    try:
       pdf = FPDF(orientation="L", unit="pt", format=(144,288)) # default units are mm; heigth, width are in points - 72 points = 1 inch
       pdf.set_margins(0, 10, 0) #left, top, right in points
@@ -148,7 +156,7 @@ if __name__ == "__main__":
          print(f"{item_count} is {item_count_to_label_count(item_count)} labels")   
       sys.exit(0)
 
-   if 1:
+   if 0:
       test_label_pdfs("/tmp/test_label.pdf")
       sys.exit(0)
 
