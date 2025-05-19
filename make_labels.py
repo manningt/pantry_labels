@@ -22,18 +22,11 @@ except Exception as e:
 
 import argparse
 from pathlib import Path
-from flask import current_app
 
-from typing import NamedTuple  #not to be confused with namedtuple in collections
+# from flask import current_app
+# from typing import NamedTuple  #not to be confused with namedtuple in collections
 
-class guest_lists(NamedTuple):
-    success: bool = False
-    message: str = ''
-    guest_list: list = []
-
-
-def make_guest_list(in_filename):
-   # Pickup_lists()
+def make_guest_list(in_filename, mode='quantity'):
    guest_list = []
 
    with open(in_filename, newline='') as csvfile:
@@ -41,8 +34,14 @@ def make_guest_list(in_filename):
       # print(f"{reader.fieldnames=}")
       row_count = 0
       for row in reader:
-         guest_list.append((row['First'], row['Last'], row['Route or Pickup Time']))
-         # print(row['First'], row['Last'], row['Route or Pickup Time'])
+         if mode == 'quantity':
+            full_name = row['Client'].strip()
+            last_name = full_name.split(',')[0]
+            first_name = full_name.split(',')[1]
+            guest_list.append((first_name, last_name, row['Total Quantity']))
+         else:
+            guest_list.append((row['First'], row['Last'], row['Route or Pickup Time']))
+         # print(f"{guest_list[-1]=}")
          if row_count == 2:
             break
          row_count += 1
@@ -73,16 +72,27 @@ def make_label_pdfs(guest_list, out_pdf_path, type='pickup'):
       # try:
       #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
       # except:
-      print(f"PDF for {last}_{first} failed: {e}")
+      print(f"PDF for {guest_list[0]} failed: {e}")
 
 if __name__ == "__main__":
    argParser = argparse.ArgumentParser()
+   argParser.add_argument("orders_filename", type=str, help="input filename with path")
    argParser.add_argument("friday_pickups_filename", type=str, help="input filename with path")
    argParser.add_argument("saturday_pickups_filename", type=str, help="input filename with path")
    argParser.add_argument("delivery_filename", type=str, help="input filename with path")
 
    args = argParser.parse_args()
 
+   if args.orders_filename is None:
+      sys.exit("Missing orders_filename.")
+   if not Path(args.orders_filename).is_file():
+      sys.exit("orders_filename is not a file.")
+   item_count_lists = make_guest_list(args.orders_filename, mode='quantity')
+   if len(item_count_lists) == 0:
+      sys.exit("Failure: orders_filename had no guests.")
+   print(f"{item_count_lists=}")
+
+   
    guest_filename_list = []
    if args.friday_pickups_filename is None:
       sys.exit("Missing friday_pickups_filename.")
@@ -108,7 +118,7 @@ if __name__ == "__main__":
 
    guest_lists = [None] * len(guest_filename_list)
    for i in range(len(guest_filename_list)):
-      guest_lists[i] = make_guest_list(guest_filename_list[i])
+      guest_lists[i] = make_guest_list(guest_filename_list[i], mode=None)
       if len(guest_lists[i]) == 0:
          print(f"Failure: Pickup_lists {i} had no guests.")
          sys.exit(1)
