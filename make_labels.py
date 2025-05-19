@@ -112,12 +112,44 @@ def make_label_pdfs(guest_list, out_pdf_path):
       # except:
       print(f"PDF for {guest_list[0]} failed: {e}")
 
+
+def test_label_pdfs(out_pdf_path):
+   route_font_size = 28 # allows longer names
+   name_font_size = 36
+   item_count_font_size = 12
+   line_height = 36
+   try:
+      pdf = FPDF(orientation="L", unit="pt", format=(144,288)) # default units are mm; heigth, width are in points - 72 points = 1 inch
+      pdf.set_margins(0, 10, 0) #left, top, right in points
+      pdf.set_auto_page_break(auto=False)
+      pdf.set_font("Helvetica", "B") # Arial not available in fpdf2
+      pdf.add_page()
+      pdf.set_font_size(route_font_size)
+      pdf.cell(0, None, f"Route67890123456789012", align="L", border=1)
+      pdf.ln(route_font_size+8)
+      pdf.set_font_size(name_font_size)
+      pdf.cell(0, None, f"First", align="C", border=1)
+      pdf.ln(name_font_size+4)
+      pdf.cell(0, None, f"Last", align="C", border=1)
+      pdf.ln(name_font_size+4)
+      pdf.set_font_size(item_count_font_size)
+      pdf.cell(0, None, f"1 of 8", align="R", border=1)
+      pdf.output(out_pdf_path)
+
+   except Exception as e:
+      print(f"PDF for test_label failed: {e}")
+
+
 if __name__ == "__main__":
 
    if 0:
       test_array = [1,11,17,25,32,40,49,57,67,73,82,90,100,107,112,139,200, 201]
       for item_count in test_array:
          print(f"{item_count} is {item_count_to_label_count(item_count)} labels")   
+      sys.exit(0)
+
+   if 1:
+      test_label_pdfs("/tmp/test_label.pdf")
       sys.exit(0)
 
    argParser = argparse.ArgumentParser()
