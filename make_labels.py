@@ -13,7 +13,6 @@ The output is a PDF file for each caller with a list of guests for the next Frid
 
 import sys, os
 try:
-   from openpyxl import load_workbook
    import csv
    from fpdf import FPDF
 except Exception as e:
@@ -23,6 +22,7 @@ except Exception as e:
 import argparse
 from pathlib import Path
 
+# from openpyxl import load_workbook
 # from flask import current_app
 # from typing import NamedTuple  #not to be confused with namedtuple in collections
 
