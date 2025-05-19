@@ -216,6 +216,8 @@ if __name__ == "__main__":
       if (':' in guest_lists[i][0][2] and (' AM' in guest_lists[i][0][2] or ' PM' in guest_lists[i][0][2])):
          delivery_type = False
          type = "pickup"
+         # print(f"{len(guest_list)=} {guest_list=}")
+         guest_lists[i].sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
       else:
          delivery_type = True
          type = "delivery"
