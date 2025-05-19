@@ -26,7 +26,33 @@ from pathlib import Path
 # from flask import current_app
 # from typing import NamedTuple  #not to be confused with namedtuple in collections
 
-def make_guest_list(in_filename, mode='quantity'):
+# full_guest_dict has item count
+def make_full_guest_dict(in_filename):
+   guest_dict = {}
+
+   with open(in_filename, newline='') as csvfile:
+      reader = csv.DictReader(csvfile)
+      # print(f"{reader.fieldnames=}")
+      row_count = 0
+      for row in reader:
+         # full_name = row['Client'].strip()
+         try:
+            name_key = f"{row['Client'].split(',')[1]}_{row['Client'].split(',')[0]}".strip()
+         except:
+            print(f"Warning: row {row_count} has no name.")
+            continue
+
+         try:
+            guest_dict[name_key] = int(float(row['Total Quantity']))
+         except ValueError:
+            print(f"Warning: {name_key} has no item count.")
+            guest_dict[name_key] = 1
+         # if row_count == 2:
+         #    break
+         row_count += 1
+   return guest_dict
+
+def make_guest_list(in_filename, guest_dict):
    guest_list = []
 
    with open(in_filename, newline='') as csvfile:
@@ -34,21 +60,28 @@ def make_guest_list(in_filename, mode='quantity'):
       # print(f"{reader.fieldnames=}")
       row_count = 0
       for row in reader:
-         if mode == 'quantity':
-            full_name = row['Client'].strip()
-            last_name = full_name.split(',')[0]
-            first_name = full_name.split(',')[1]
-            guest_list.append((first_name, last_name, row['Total Quantity']))
+         name_key = row['First'] + '_' + row['Last'].replace('*', '')
+         if name_key in guest_dict:
+            item_count = guest_dict[name_key]
          else:
-            guest_list.append((row['First'], row['Last'], row['Route or Pickup Time']))
+            item_count = 0
+            print(f"Warning: {name_key} not found in guest_dict.")
+         guest_list.append((row['First'], row['Last'], row['Route or Pickup Time'], item_count))
          # print(f"{guest_list[-1]=}")
          if row_count == 2:
             break
          row_count += 1
    return guest_list
 
+def item_count_to_label_count(item_count):
+   limits = [0, 17, 25, 32, 40, 49,57,67,73,82,90,100,107,112,139,200]
+   if item_count > 200:
+      return 16
+   for i in range(len(limits)-1):
+      if item_count > limits[i] and item_count <= limits[i+1]:
+         return i + 2
 
-def make_label_pdfs(guest_list, out_pdf_path, type='pickup'):
+def make_label_pdfs(guest_list, out_pdf_path):
    # PDF writing examples:
    #  https://medium.com/@mahijain9211/creating-a-python-class-for-generating-pdf-tables-from-a-pandas-dataframe-using-fpdf2-c0eb4b88355c
    #  https://py-pdf.github.io/fpdf2/Tutorial.html
@@ -59,9 +92,13 @@ def make_label_pdfs(guest_list, out_pdf_path, type='pickup'):
       pdf.set_margins(0, 5, 0) #left, top, right in points
       pdf.set_font("Helvetica", "B", size=font_size) # Arial not available in fpdf2
       for row in guest_list:
+         # print(f"{row=}")
          pdf.add_page()
-         if type == 'delivery':
-            pdf.cell(0, font_size, f"{row[2]}", align="C")
+
+         # if row[2] is a time, then don't print it; only print if it's a route
+         if not (':' in row[2] and (' AM' in row[2] or ' PM' in row[2])):
+            pdf.cell(0, font_size, f"{row[2]}", align="L")
+
          pdf.ln(line_height)
          pdf.cell(0, font_size, f"{row[0]}", align="C")
          pdf.ln(line_height)
@@ -75,6 +112,12 @@ def make_label_pdfs(guest_list, out_pdf_path, type='pickup'):
       print(f"PDF for {guest_list[0]} failed: {e}")
 
 if __name__ == "__main__":
+
+   # test_array = [1,16,17,25,32,40,49,57,67,73,82,90,100,107,112,139,200, 201]
+   # for item_count in test_array:
+   #    print(f"{item_count} is {item_count_to_label_count(item_count)} labels")   
+   # sys.exit(0)
+
    argParser = argparse.ArgumentParser()
    argParser.add_argument("orders_filename", type=str, help="input filename with path")
    argParser.add_argument("friday_pickups_filename", type=str, help="input filename with path")
@@ -87,11 +130,12 @@ if __name__ == "__main__":
       sys.exit("Missing orders_filename.")
    if not Path(args.orders_filename).is_file():
       sys.exit("orders_filename is not a file.")
-   item_count_lists = make_guest_list(args.orders_filename, mode='quantity')
-   if len(item_count_lists) == 0:
+   full_guest_dict = make_full_guest_dict(args.orders_filename)
+   if len(full_guest_dict) == 0:
       sys.exit("Failure: orders_filename had no guests.")
-   print(f"{item_count_lists=}")
-
+   if 0:
+      print(f"{full_guest_dict=}")
+      sys.exit(0)
    
    guest_filename_list = []
    if args.friday_pickups_filename is None:
@@ -118,13 +162,8 @@ if __name__ == "__main__":
 
    guest_lists = [None] * len(guest_filename_list)
    for i in range(len(guest_filename_list)):
-      guest_lists[i] = make_guest_list(guest_filename_list[i], mode=None)
+      guest_lists[i] = make_guest_list(guest_filename_list[i], full_guest_dict)
       if len(guest_lists[i]) == 0:
-         print(f"Failure: Pickup_lists {i} had no guests.")
+         print(f"Failure: guest_lists {i} had no guests.")
          sys.exit(1)
-      # print(f"{guest_lists[i]=}")
-      if i == 2:
-         list_type = 'delivery'
-      else:
-         list_type = 'pickup'
-      make_label_pdfs(guest_lists[i], f"/tmp/guest_list_{i}.pdf", type=list_type)
+      make_label_pdfs(guest_lists[i], f"/tmp/guest_list_{i}.pdf")
