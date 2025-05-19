@@ -74,12 +74,12 @@ def make_guest_list(in_filename, guest_dict):
    return guest_list
 
 def item_count_to_label_count(item_count):
-   limits = [0, 17, 25, 32, 40, 49,57,67,73,82,90,100,107,112,139,200]
+   limits = [0, 9, 17, 25, 32, 40, 49,57,67,73,82,90,100,107,112,139,200]
    if item_count > 200:
       return 16
    for i in range(len(limits)-1):
       if item_count > limits[i] and item_count <= limits[i+1]:
-         return i + 2
+         return i + 1
 
 def make_label_pdfs(guest_list, out_pdf_path):
    # PDF writing examples:
@@ -92,17 +92,18 @@ def make_label_pdfs(guest_list, out_pdf_path):
       pdf.set_margins(0, 5, 0) #left, top, right in points
       pdf.set_font("Helvetica", "B", size=font_size) # Arial not available in fpdf2
       for row in guest_list:
-         # print(f"{row=}")
-         pdf.add_page()
-
-         # if row[2] is a time, then don't print it; only print if it's a route
-         if not (':' in row[2] and (' AM' in row[2] or ' PM' in row[2])):
-            pdf.cell(0, font_size, f"{row[2]}", align="L")
-
-         pdf.ln(line_height)
-         pdf.cell(0, font_size, f"{row[0]}", align="C")
-         pdf.ln(line_height)
-         pdf.cell(0, font_size, f"{row[1]}", align="C")
+         label_count = item_count_to_label_count(row[3])
+         for i in range(label_count):
+            pdf.add_page()
+            # if row[2] is a time, then don't print it; only print if it's a route
+            if not (':' in row[2] and (' AM' in row[2] or ' PM' in row[2])):
+               pdf.cell(0, font_size, f"{row[2]}", align="L")
+            pdf.ln(line_height)
+            pdf.cell(0, font_size, f"{row[0]}", align="C")
+            pdf.ln(line_height)
+            pdf.cell(0, font_size, f"{row[1]}", align="C")
+            # pdf.ln(line_height)
+            # pdf.cell(0, font_size, f"{i+1} of {label_count}", align="R")
       pdf.output(out_pdf_path)
 
    except Exception as e:
@@ -113,10 +114,11 @@ def make_label_pdfs(guest_list, out_pdf_path):
 
 if __name__ == "__main__":
 
-   # test_array = [1,16,17,25,32,40,49,57,67,73,82,90,100,107,112,139,200, 201]
-   # for item_count in test_array:
-   #    print(f"{item_count} is {item_count_to_label_count(item_count)} labels")   
-   # sys.exit(0)
+   if 0:
+      test_array = [1,11,17,25,32,40,49,57,67,73,82,90,100,107,112,139,200, 201]
+      for item_count in test_array:
+         print(f"{item_count} is {item_count_to_label_count(item_count)} labels")   
+      sys.exit(0)
 
    argParser = argparse.ArgumentParser()
    argParser.add_argument("orders_filename", type=str, help="input filename with path")
