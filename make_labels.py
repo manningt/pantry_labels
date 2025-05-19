@@ -68,8 +68,8 @@ def make_guest_list(in_filename, guest_dict):
             print(f"Warning: {name_key} not found in guest_dict.")
          guest_list.append((row['First'], row['Last'], row['Route or Pickup Time'], item_count))
          # print(f"{guest_list[-1]=}")
-         if row_count == 2:
-            break
+         # if row_count == 2:
+         #    break
          row_count += 1
    return guest_list
 
@@ -81,7 +81,7 @@ def item_count_to_label_count(item_count):
       if item_count > limits[i] and item_count <= limits[i+1]:
          return i + 1
 
-def make_label_pdfs(guest_list, out_pdf_path):
+def make_label_pdfs(guest_list, delivery_type, out_pdf_path):
    # PDF writing examples:
    #  https://medium.com/@mahijain9211/creating-a-python-class-for-generating-pdf-tables-from-a-pandas-dataframe-using-fpdf2-c0eb4b88355c
    #  https://py-pdf.github.io/fpdf2/Tutorial.html
@@ -90,6 +90,7 @@ def make_label_pdfs(guest_list, out_pdf_path):
    label_count_font_size = 12
    label_height = 144 #points
    label_width = 288
+   number_of_labels = 0
 
    try:
       pdf = FPDF(orientation="L", unit="pt", format=(label_height,label_width))
@@ -101,7 +102,7 @@ def make_label_pdfs(guest_list, out_pdf_path):
          for i in range(label_count):
             pdf.add_page()
             # if row[2] is a time, then don't print it; only print if it's a route
-            if not (':' in row[2] and (' AM' in row[2] or ' PM' in row[2])):
+            if not delivery_type:
                pdf.set_font_size(route_font_size)
                pdf.cell(0, None, f"{row[2]}", align="L")
                pdf.line(0, 36, label_width, 36) # line from left to right
@@ -113,6 +114,7 @@ def make_label_pdfs(guest_list, out_pdf_path):
             pdf.ln(name_font_size+4)
             pdf.set_font_size(label_count_font_size)
             pdf.cell(0, None, f"{i+1} of {label_count}", align="R")
+            number_of_labels += 1
       pdf.output(out_pdf_path)
 
    except Exception as e:
@@ -120,6 +122,8 @@ def make_label_pdfs(guest_list, out_pdf_path):
       #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
       # except:
       print(f"PDF for {guest_list[0]} failed: {e}")
+
+   return number_of_labels
 
 
 def test_label_pdfs(out_pdf_path):
@@ -208,4 +212,12 @@ if __name__ == "__main__":
       if len(guest_lists[i]) == 0:
          print(f"Failure: guest_lists {i} had no guests.")
          sys.exit(1)
-      make_label_pdfs(guest_lists[i], f"/tmp/guest_list_{i}.pdf")
+      # print(f"{guest_lists[i][0][2]}") list - row - tuple index is the route or pickup time
+      if  (':' in guest_lists[i][0][2] and (' AM' in guest_lists[i][0][2] or ' PM' in guest_lists[i][0][2])):
+         delivery_type = False
+         type = "pickup"
+      else:
+         delivery_type = True
+         type = "delivery"
+      number_of_labels = make_label_pdfs(guest_lists[i], delivery_type, f"/tmp/guest_list_{i}.pdf")
+      print(f"guest_list {i} ({type=}) has {len(guest_lists[i])} guests and {number_of_labels} labels.")
