@@ -102,7 +102,7 @@ def make_label_pdfs(guest_list, delivery_type, out_pdf_path):
          for i in range(label_count):
             pdf.add_page()
             # if row[2] is a time, then don't print it; only print if it's a route
-            if not delivery_type:
+            if delivery_type:
                pdf.set_font_size(route_font_size)
                pdf.cell(0, None, f"{row[2]}", align="L")
                pdf.line(0, 36, label_width, 36) # line from left to right
@@ -213,7 +213,7 @@ if __name__ == "__main__":
          print(f"Failure: guest_lists {i} had no guests.")
          sys.exit(1)
       # print(f"{guest_lists[i][0][2]}") list - row - tuple index is the route or pickup time
-      if  (':' in guest_lists[i][0][2] and (' AM' in guest_lists[i][0][2] or ' PM' in guest_lists[i][0][2])):
+      if (':' in guest_lists[i][0][2] and (' AM' in guest_lists[i][0][2] or ' PM' in guest_lists[i][0][2])):
          delivery_type = False
          type = "pickup"
       else:
