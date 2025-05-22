@@ -32,24 +32,26 @@ def make_full_guest_dict(in_filename):
 
    with open(in_filename, newline='') as csvfile:
       reader = csv.DictReader(csvfile)
+      if 'Client' not in reader.fieldnames:
+         sys.exit(f"Failure: {in_filename} does not have a Client column.")
       # print(f"{reader.fieldnames=}")
       row_count = 0
       for row in reader:
          # full_name = row['Client'].strip()
+         row_count += 1
          try:
             name_key = f"{row['Client'].split(',')[1]}_{row['Client'].split(',')[0]}".strip()
          except:
-            print(f"Warning: row {row_count} has no name.")
+            print(f"Warning: row {row_count} has no client name in the second column.")
             continue
-
+            
          try:
             guest_dict[name_key] = int(float(row['Total Quantity']))
-         except ValueError:
-            print(f"Warning: {name_key} has no item count.")
+         except:
             guest_dict[name_key] = 1
-         # if row_count == 2:
+            print(f"Warning: {name_key} has no item count; defaulting to {guest_dict[name_key]}.")
+         # if row_count == 3:
          #    break
-         row_count += 1
    return guest_dict
 
 def make_guest_list(in_filename, guest_dict):
@@ -64,8 +66,8 @@ def make_guest_list(in_filename, guest_dict):
          if name_key in guest_dict:
             item_count = guest_dict[name_key]
          else:
-            item_count = 0
-            print(f"Warning: {name_key} not found in guest_dict.")
+            item_count = 1
+            print(f"Warning: {name_key} not found in guest_dict; defaulting item_count to {item_count}.")
          guest_list.append((row['First'], row['Last'], row['Route or Pickup Time'], item_count))
          # print(f"{guest_list[-1]=}")
          # if row_count == 2:
@@ -98,7 +100,7 @@ def make_label_pdfs(guest_list, delivery_type, out_pdf_path):
       pdf.set_auto_page_break(auto=False)
       pdf.set_font("Helvetica", "B") # Arial not available in fpdf2
       for row in guest_list:
-         label_count = item_count_to_label_count(row[3])
+         label_count = int(item_count_to_label_count(row[3]))
          for i in range(label_count):
             pdf.add_page()
             # if row[2] is a time, then don't print it; only print if it's a route
@@ -110,7 +112,7 @@ def make_label_pdfs(guest_list, delivery_type, out_pdf_path):
             pdf.set_font_size(name_font_size)
             pdf.cell(0, None, f"{row[0]}", align="C")
             pdf.ln(name_font_size+4)
-            pdf.cell(0, None, f"{row[1]}", align="C")
+            pdf.cell(0, None, f"{row[1][0:15]}", align="C")
             pdf.ln(name_font_size+4)
             pdf.set_font_size(label_count_font_size)
             pdf.cell(0, None, f"{i+1} of {label_count}", align="R")
@@ -171,7 +173,7 @@ if __name__ == "__main__":
    file_list= args.file_path
    # print(f"{file_list=}")
 
-   string_in_item_count_filename = "Visits"
+   string_in_item_count_filename = "Visit"
    guest_filename_list = []
    for i in range(len(file_list)):
       file_list[i] = Path(file_list[i])
