@@ -106,13 +106,13 @@ def make_label_pdfs(guest_list, delivery_type, out_pdf_path):
             # if row[2] is a time, then don't print it; only print if it's a route
             if delivery_type:
                pdf.set_font_size(route_font_size)
-               pdf.cell(0, None, f"{row[2]}", align="L")
+               pdf.cell(0, None, f'{row[2].replace(" - ", ": ")}', align="L")
                pdf.line(0, 36, label_width, 36) # line from left to right
             pdf.ln(route_font_size+10)
             pdf.set_font_size(name_font_size)
-            pdf.cell(0, None, f"{row[0]}", align="C")
+            pdf.cell(0, None, f"{row[0].title()}", align="C")
             pdf.ln(name_font_size+4)
-            pdf.cell(0, None, f"{row[1][0:15]}", align="C")
+            pdf.cell(0, None, f"{row[1][0:15].title()}", align="C")
             pdf.ln(name_font_size+4)
             pdf.set_font_size(label_count_font_size)
             pdf.cell(0, None, f"{i+1} of {label_count}", align="R")
