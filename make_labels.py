@@ -54,9 +54,12 @@ def make_full_guest_dict(in_filename):
          #    break
    return guest_dict
 
-def make_guest_list(in_filename, guest_dict):
+def make_guest_list(in_filename, guest_dict, AM_PM_String='AM'):
    guest_list = []
 
+   # print(f"make_guest_list {in_filename} {AM_PM_String=}")
+
+   type = "delivery"
    with open(in_filename, newline='') as csvfile:
       reader = csv.DictReader(csvfile)
       # print(f"{reader.fieldnames=}")
@@ -68,12 +71,18 @@ def make_guest_list(in_filename, guest_dict):
          else:
             item_count = 1
             print(f"Warning: {name_key} not found in guest_dict; defaulting item_count to {item_count}.")
-         guest_list.append((row['First'], row['Last'], row['Route or Pickup Time'], item_count))
-         # print(f"{guest_list[-1]=}")
+
+         if row_count == 0:
+            if (':' in row['Route or Pickup Time'] and (' AM' in row['Route or Pickup Time'] or ' PM' in row['Route or Pickup Time'])):
+               type = AM_PM_String
+
+         if type == "delivery" or (AM_PM_String in row['Route or Pickup Time']):
+            guest_list.append((row['First'], row['Last'], row['Route or Pickup Time'], item_count))
+         # print(f"  {row_count} = {guest_list[-1]}")
          # if row_count == 2:
          #    break
          row_count += 1
-   return guest_list
+   return (guest_list,type)
 
 def item_count_to_label_count(item_count):
    limits = [0, 9, 17, 25, 32, 40, 49,57,67,73,82,90,100,107,112,139,200]
@@ -169,6 +178,18 @@ if __name__ == "__main__":
    argParser = argparse.ArgumentParser()
    argParser.add_argument("file_path", type=str, help="input filename with path", nargs='*')
 
+   '''
+   There can be multiple files:
+      One must be the Visits_with_Tallied_Inventory_Distribution file, which has the item counts for each guest.
+         The Inventory Distribution file is parsed into the full_guest_dict, which has the LAST_FIRST as the key and the item count as the value.
+
+      The rest are the guest lists, which have the first name, last name, route or pickup time, and item count.
+      guest_filename_list is a list of filenames that are guest lists.
+
+      guests_lists[] is a list of lists, where each list is a guest list, typically one for delivery and one for pickup.
+   '''
+   
+
    args = argParser.parse_args()
    file_list= args.file_path
    # print(f"{file_list=}")
@@ -189,20 +210,27 @@ if __name__ == "__main__":
       else:
          guest_filename_list.append(file_list[i])
 
-   guest_lists = [None] * len(guest_filename_list)
+   # type can be 'delivery' or 'AM' or 'PM'
+   # AM and PM lists are sorted alphabetically by last name, then first name
+
+   if len(guest_filename_list) == 0:
+      sys.exit("Failure: No guest lists found. Please provide at least one guest list file.")
+
    for i in range(len(guest_filename_list)):
-      guest_lists[i] = make_guest_list(guest_filename_list[i], full_guest_dict)
-      if len(guest_lists[i]) == 0:
+      guest_list, type = make_guest_list(guest_filename_list[i], full_guest_dict, AM_PM_String='AM')
+      if len(guest_list) == 0:
          print(f"Failure: guest_lists {i} had no guests.")
          sys.exit(1)
-      # print(f"{guest_lists[i][0][2]}") list - row - tuple index is the route or pickup time
-      if (':' in guest_lists[i][0][2] and (' AM' in guest_lists[i][0][2] or ' PM' in guest_lists[i][0][2])):
+      if type == 'AM':
          delivery_type = False
-         type = "pickup"
-         # print(f"{len(guest_list)=} {guest_list=}")
-         guest_lists[i].sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
+         guest_list.sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
+         number_of_labels = make_label_pdfs(guest_list, delivery_type, f"/tmp/guest_list_{i}_{type}.pdf")
+         print(f"guest_list {i} ({type=}) has {len(guest_list)} guests and {number_of_labels} labels.")
+         # make the PM list:
+         guest_list, type = make_guest_list(guest_filename_list[i], full_guest_dict, AM_PM_String='PM')
+         guest_list.sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
+         number_of_labels = make_label_pdfs(guest_list, delivery_type, f"/tmp/guest_list_{i}_{type}.pdf")
       else:
          delivery_type = True
-         type = "delivery"
-      number_of_labels = make_label_pdfs(guest_lists[i], delivery_type, f"/tmp/guest_list_{i}.pdf")
-      print(f"guest_list {i} ({type=}) has {len(guest_lists[i])} guests and {number_of_labels} labels.")
+         number_of_labels = make_label_pdfs(guest_list, delivery_type, f"/tmp/guest_list_{i}_{type}.pdf")
+      print(f"guest_list {i} ({type=}) has {len(guest_list)} guests and {number_of_labels} labels.")
