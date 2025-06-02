@@ -26,6 +26,9 @@ from pathlib import Path
 # from flask import current_app
 # from typing import NamedTuple  #not to be confused with namedtuple in collections
 
+DELIVERY_TYPE = 'Delivery'  # used for delivery guest lists
+AM_PM_TYPE = 'AM_PM'  # used for AM/PM guest lists
+
 # full_guest_dict has item count
 def make_full_guest_dict(in_filename):
    guest_dict = {}
@@ -54,17 +57,37 @@ def make_full_guest_dict(in_filename):
          #    break
    return guest_dict
 
-def make_guest_list(in_filename, guest_dict, AM_PM_String='AM'):
+def get_guest_list_type(in_filename):
+   # Determine if the guest list is for delivery or AM/PM pickup
+   with open(in_filename, newline='') as csvfile:
+      reader = csv.DictReader(csvfile)
+      if 'Route or Pickup Time' not in reader.fieldnames:
+         sys.exit(f"Failure: {in_filename} does not have a Route or Pickup Time column.")
+      row = next(reader)
+      if ':' in row['Route or Pickup Time'] and (' AM' in row['Route or Pickup Time'] or ' PM' in row['Route or Pickup Time']):
+         return AM_PM_TYPE
+      else:
+         return DELIVERY_TYPE
+      
+
+def make_guest_list(in_filename, guest_dict, start_time=12, end_time=15):
+   # time format: 12:50 PM or 07:00 AM
    guest_list = []
 
    # print(f"make_guest_list {in_filename} {AM_PM_String=}")
 
-   type = "delivery"
    with open(in_filename, newline='') as csvfile:
       reader = csv.DictReader(csvfile)
       # print(f"{reader.fieldnames=}")
       row_count = 0
       for row in reader:
+
+         if row_count == 0:
+            if (':' in row['Route or Pickup Time'] and (' AM' in row['Route or Pickup Time'] or ' PM' in row['Route or Pickup Time'])):
+               type = AM_PM_TYPE
+            else:
+               type = DELIVERY_TYPE
+
          name_key = row['First'] + '_' + row['Last'].replace('*', '')
          if name_key in guest_dict:
             item_count = guest_dict[name_key]
@@ -72,17 +95,22 @@ def make_guest_list(in_filename, guest_dict, AM_PM_String='AM'):
             item_count = 1
             print(f"Warning: {name_key} not found in guest_dict; defaulting item_count to {item_count}.")
 
-         if row_count == 0:
-            if (':' in row['Route or Pickup Time'] and (' AM' in row['Route or Pickup Time'] or ' PM' in row['Route or Pickup Time'])):
-               type = AM_PM_String
-
-         if type == "delivery" or (AM_PM_String in row['Route or Pickup Time']):
+         if type == DELIVERY_TYPE:
             guest_list.append((row['First'], row['Last'], row['Route or Pickup Time'], item_count))
+         else:
+            time_string = row['Route or Pickup Time'].split(' ')[0]
+            hour, minute = map(int, time_string.split(':'))
+            am_pm = row['Route or Pickup Time'].split(' ')[1]
+            if am_pm == 'PM' and hour < 12:
+               hour += 12
+            if hour >= start_time and hour < end_time:
+               guest_list.append((row['First'].title(), row['Last'].title(), row['Route or Pickup Time'], item_count))
+
          # print(f"  {row_count} = {guest_list[-1]}")
          # if row_count == 2:
          #    break
          row_count += 1
-   return (guest_list,type)
+   return guest_list
 
 def item_count_to_label_count(item_count):
    limits = [0, 9, 17, 25, 32, 40, 49,57,67,73,82,90,100,107,112,139,200]
@@ -92,7 +120,7 @@ def item_count_to_label_count(item_count):
       if item_count > limits[i] and item_count <= limits[i+1]:
          return i + 1
 
-def make_label_pdfs(guest_list, delivery_type, out_pdf_path):
+def make_label_pdfs(guest_list, type, out_pdf_path):
    # PDF writing examples:
    #  https://medium.com/@mahijain9211/creating-a-python-class-for-generating-pdf-tables-from-a-pandas-dataframe-using-fpdf2-c0eb4b88355c
    #  https://py-pdf.github.io/fpdf2/Tutorial.html
@@ -113,7 +141,7 @@ def make_label_pdfs(guest_list, delivery_type, out_pdf_path):
          for i in range(label_count):
             pdf.add_page()
             # if row[2] is a time, then don't print it; only print if it's a route
-            if delivery_type:
+            if type == DELIVERY_TYPE:
                pdf.set_font_size(route_font_size)
                pdf.cell(0, None, f'{row[2].replace(" - ", ": ")}', align="L")
                pdf.line(0, 36, label_width, 36) # line from left to right
@@ -217,20 +245,32 @@ if __name__ == "__main__":
       sys.exit("Failure: No guest lists found. Please provide at least one guest list file.")
 
    for i in range(len(guest_filename_list)):
-      guest_list, type = make_guest_list(guest_filename_list[i], full_guest_dict, AM_PM_String='AM')
-      if len(guest_list) == 0:
-         print(f"Failure: guest_lists {i} had no guests.")
-         sys.exit(1)
-      if type == 'AM':
-         delivery_type = False
-         guest_list.sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
-         number_of_labels = make_label_pdfs(guest_list, delivery_type, f"/tmp/guest_list_{i}_{type}.pdf")
-         print(f"guest_list {i} ({type=}) has {len(guest_list)} guests and {number_of_labels} labels.")
-         # make the PM list:
-         guest_list, type = make_guest_list(guest_filename_list[i], full_guest_dict, AM_PM_String='PM')
-         guest_list.sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
-         number_of_labels = make_label_pdfs(guest_list, delivery_type, f"/tmp/guest_list_{i}_{type}.pdf")
+      type = get_guest_list_type(guest_filename_list[i])
+      if type == DELIVERY_TYPE:
+         guest_list = make_guest_list(guest_filename_list[i], full_guest_dict)
+         if len(guest_list) == 0:
+            print(f"Failure: guest_lists {i} had no guests.")
+            sys.exit(1)
+         filename = f'guest_list_{i}_{type}.pdf'
+         number_of_labels = make_label_pdfs(guest_list, type, f"/tmp/{filename}")
+         print(f"{filename} has {len(guest_list)} guests and {number_of_labels} labels.")
       else:
-         delivery_type = True
-         number_of_labels = make_label_pdfs(guest_list, delivery_type, f"/tmp/guest_list_{i}_{type}.pdf")
-      print(f"guest_list {i} ({type=}) has {len(guest_list)} guests and {number_of_labels} labels.")
+         for j in range(0,3):
+            if j == 0:
+               start = 7
+               end = 12
+               filename = f"guest_list_{i}_Pickup_Saturday.pdf"
+            elif j == 1:
+               start = 12
+               end = 15
+               filename = f"guest_list_{i}_Pickup_Friday_before_3.pdf"
+            else:
+               start = 15
+               end = 23
+               filename = f"guest_list_{i}_Pickup_Friday_after_3.pdf"
+
+            guest_list = make_guest_list(guest_filename_list[i], full_guest_dict, start_time=start, end_time=end)
+            guest_list.sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
+            number_of_labels = make_label_pdfs(guest_list, type, f"/tmp/{filename}")
+            print(f"{filename} has {len(guest_list)} guests and {number_of_labels} labels.")
+      
