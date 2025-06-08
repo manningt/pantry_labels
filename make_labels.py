@@ -121,6 +121,7 @@ def item_count_to_label_count(item_count):
          return i + 1
 
 def make_label_pdfs(guest_list, type, out_pdf_path):
+
    # PDF writing examples:
    #  https://medium.com/@mahijain9211/creating-a-python-class-for-generating-pdf-tables-from-a-pandas-dataframe-using-fpdf2-c0eb4b88355c
    #  https://py-pdf.github.io/fpdf2/Tutorial.html
@@ -131,38 +132,52 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
    label_width = 288
    number_of_labels = 0
 
-   try:
-      pdf = FPDF(orientation="L", unit="pt", format=(label_height,label_width))
-      pdf.set_margins(0, 6, 0) #left, top, right in points
-      pdf.set_auto_page_break(auto=False)
-      pdf.set_font("Helvetica", "B") # Arial not available in fpdf2
-      for row in guest_list:
-         label_count = int(item_count_to_label_count(row[3]))
-         for i in range(label_count):
-            pdf.add_page()
-            # if row[2] is a time, then don't print it; only print if it's a route
-            if type == DELIVERY_TYPE:
-               pdf.set_font_size(route_font_size)
-               pdf.cell(0, None, f'{row[2].replace(" - ", ": ")}', align="L")
-               pdf.line(0, 36, label_width, 36) # line from left to right
-            pdf.ln(route_font_size+10)
-            pdf.set_font_size(name_font_size)
-            pdf.cell(0, None, f"{row[0].title()}", align="C")
-            pdf.ln(name_font_size+4)
-            pdf.cell(0, None, f"{row[1][0:15].title()}", align="C")
-            pdf.ln(name_font_size+4)
-            pdf.set_font_size(label_count_font_size)
-            pdf.cell(0, None, f"{i+1} of {label_count}", align="R")
-            number_of_labels += 1
-      pdf.output(out_pdf_path)
+   if len(guest_list) == 0:
+      status_string = f"Failure: guest_lists {i} had no guests."
+   else:
+      try:
+         pdf = FPDF(orientation="L", unit="pt", format=(label_height,label_width))
+         pdf.set_margins(0, 6, 0) #left, top, right in points
+         pdf.set_auto_page_break(auto=False)
+         pdf.set_font("Helvetica", "B") # Arial not available in fpdf2
+         for row in guest_list:
+            label_count = int(item_count_to_label_count(row[3]))
+            for i in range(label_count):
+               pdf.add_page()
+               # if row[2] is a time, then don't print it; only print if it's a route
+               if type == DELIVERY_TYPE:
+                  pdf.set_font_size(route_font_size)
+                  pdf.cell(0, None, f'{row[2].replace(" - ", ": ")}', align="L")
+                  pdf.line(0, 36, label_width, 36) # line from left to right
+               pdf.ln(route_font_size+10)
+               pdf.set_font_size(name_font_size)
+               pdf.cell(0, None, f"{row[0].title()}", align="C")
+               pdf.ln(name_font_size+4)
+               pdf.cell(0, None, f"{row[1][0:15].title()}", align="C")
+               pdf.ln(name_font_size+4)
+               pdf.set_font_size(label_count_font_size)
+               pdf.cell(0, None, f"{i+1} of {label_count}", align="R")
+               number_of_labels += 1
+         pdf.output(out_pdf_path)
+         status_string = f"{filename} has {len(guest_list)} guests and {number_of_labels} labels."
 
-   except Exception as e:
-      # try:
-      #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
-      # except:
-      print(f"PDF for {guest_list[0]} failed: {e}")
+      except Exception as e:
+         # try:
+         #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
+         # except:
+         status_string = f"PDF for {guest_list[0]} failed: {e}"
 
-   return number_of_labels
+   return status_string
+
+def get_csv_files(directory):
+    """
+    Returns a list of CSV files in the specified directory.
+    """
+    csv_files = []
+    for filename in os.listdir(directory):
+        if filename.endswith(".csv"):
+            csv_files.append(os.path.join(directory, filename))
+    return csv_files
 
 
 def test_label_pdfs(out_pdf_path):
@@ -216,44 +231,50 @@ if __name__ == "__main__":
 
       guests_lists[] is a list of lists, where each list is a guest list, typically one for delivery and one for pickup.
    '''
-   
 
    args = argParser.parse_args()
    file_list= args.file_path
+
+   if len(file_list) == 0:
+      print("Using current directory for CSV files.")
+      file_list = get_csv_files(".")
    # print(f"{file_list=}")
 
+   # iterate through the file_list and find the Visits_with_Tallied_Inventory_Distribution file
+   full_guest_dict = {}
    string_in_item_count_filename = "Visit"
    guest_filename_list = []
+
    for i in range(len(file_list)):
       file_list[i] = Path(file_list[i])
       if not file_list[i].is_file():
          sys.exit(f"file_path {i} is not a file.")
       if string_in_item_count_filename in str(file_list[i]):
          full_guest_dict = make_full_guest_dict(file_list[i])
-         if len(full_guest_dict) == 0:
-            sys.exit("Failure: Visits... file had no guests.")
          if 0:
             print(f"{full_guest_dict=}")
             sys.exit(0)
       else:
          guest_filename_list.append(file_list[i])
 
-   # type can be 'delivery' or 'AM' or 'PM'
-   # AM and PM lists are sorted alphabetically by last name, then first name
-
+   if len(full_guest_dict) == 0:
+      sys.exit("Failure: Visits... file had no guests.")
    if len(guest_filename_list) == 0:
       sys.exit("Failure: No guest lists found. Please provide at least one guest list file.")
+   # print(f"{guest_filename_list=}")
 
+   # type can be 'delivery' or 'AM' or 'PM'
+   # AM and PM lists are sorted alphabetically by last name, then first name
+   OUTPUT_DIRECTORY = Path(".")
+   report_strings = []
    for i in range(len(guest_filename_list)):
       type = get_guest_list_type(guest_filename_list[i])
       if type == DELIVERY_TYPE:
          guest_list = make_guest_list(guest_filename_list[i], full_guest_dict)
-         if len(guest_list) == 0:
-            print(f"Failure: guest_lists {i} had no guests.")
-            sys.exit(1)
          filename = f'guest_list_{i}_{type}.pdf'
-         number_of_labels = make_label_pdfs(guest_list, type, f"/tmp/{filename}")
-         print(f"{filename} has {len(guest_list)} guests and {number_of_labels} labels.")
+         status_string = make_label_pdfs(guest_list, type, f"{OUTPUT_DIRECTORY}/{filename}")
+         print(status_string)
+         report_strings.append(status_string)
       else:
          for j in range(0,3):
             if j == 0:
@@ -271,6 +292,10 @@ if __name__ == "__main__":
 
             guest_list = make_guest_list(guest_filename_list[i], full_guest_dict, start_time=start, end_time=end)
             guest_list.sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
-            number_of_labels = make_label_pdfs(guest_list, type, f"/tmp/{filename}")
-            print(f"{filename} has {len(guest_list)} guests and {number_of_labels} labels.")
-      
+            status_string = make_label_pdfs(guest_list, type, f"{OUTPUT_DIRECTORY}/{filename}")
+            print(status_string)
+            report_strings.append(status_string)
+
+   with open(f"{OUTPUT_DIRECTORY}/make_tags_report.txt", "w") as report_file:
+      for line in report_strings:
+         report_file.write(line + "\n")
