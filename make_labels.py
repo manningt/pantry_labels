@@ -249,7 +249,7 @@ if __name__ == "__main__":
       file_list[i] = Path(file_list[i])
       if not file_list[i].is_file():
          sys.exit(f"file_path {i} is not a file.")
-      if string_in_item_count_filename in str(file_list[i]):
+      if str(file_list[i]).startswith(string_in_item_count_filename):
          full_guest_dict = make_full_guest_dict(file_list[i])
          if 0:
             print(f"{full_guest_dict=}")
