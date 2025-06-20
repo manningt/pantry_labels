@@ -133,7 +133,7 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
    number_of_labels = 0
 
    if len(guest_list) == 0:
-      status_string = f"Failure: guest_lists {i} had no guests."
+      status_string = f"Failure: no guests in the guest_list to generate {out_pdf_path}."
    else:
       try:
          pdf = FPDF(orientation="L", unit="pt", format=(label_height,label_width))
@@ -165,7 +165,7 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
          # try:
          #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
          # except:
-         status_string = f"PDF for {guest_list[0]} failed: {e}"
+         status_string = f"failed to generate {out_pdf_path} exception: {e}"
 
    return status_string
 
