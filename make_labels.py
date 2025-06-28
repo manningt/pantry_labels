@@ -1,13 +1,38 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "fpdf2",
+#   "typing_extensions",
+# ]
+# ///
+
 '''
-2 functions:
-1. make_guests_per_caller_lists(in_filename) -> Caller_lists
-2. make_caller_pdfs(caller_mapping_dict, guest_dict, date_str)
+Note: before loading uv, the first line was: #!/usr/bin/env python3
 
-The input file is an Excel file with 3 sheets: 'guest-to-caller', 'callers', 'guests'
-See class definition below for the NamedTuple Caller_lists returned by make_guests_per_caller_lists(in_filename)
+This script generates PDF labels for guests based on their item counts and delivery or pickup times.
 
-The output is a PDF file for each caller with a list of guests for the next Friday.
+The inputs are 3 CSV files:
+1. Visits_with_Tallied_Inventory_Distribution.csv - contains the item counts for each guest.
+2. Guest list CSV files - contain the first name, last name, route or pickup time, and item count for each guest.
+   There is one one csv file for delivery and one for AM/PM pickup.
+   For the pickup lists, AM pickup times are Saturday morning, and PM pickup times are Friday afternoon.
+
+3 functions:
+1. make_full_guest_dict(in_filename) - reads the Visits_with_Tallied_Inventory_Distribution.csv file
+   and returns a dictionary with the guest names as keys and their item counts as values.
+2. make_guest_list(in_filename, guest_dict, start_time=12, end_time=15) - reads a guest list CSV file and
+    returns a list of tuples with the guest's first name, last name, route or pickup time, and item count.
+3. make_label_pdfs(guest_list, type, out_pdf_path) - generates a PDF file with labels for each guest in the guest list.
+   The number of pages in the label PDF file is determined by the item count for each guest.
+
+The output is are the following files:
+1. guest_list_0_Delivery.pdf - contains labels for all guests with delivery times.
+2. guest_list_0_Pickup_Saturday.pdf - contains labels for all guests with AM pickup times (Saturday morning).
+3. guest_list_0_Pickup_Friday_before_3.pdf - contains labels for all guests with PM pickup times (Friday afternoon).
+4. guest_list_0_Pickup_Friday_after_3.pdf - contains labels for all guests with PM pickup times (Friday evening).
+The output files are saved in the current directory.
+The script also generates a report file make_tags_report.txt with the status of the label generation.
 
 '''
 
@@ -22,7 +47,6 @@ except Exception as e:
 import argparse
 from pathlib import Path
 
-# from openpyxl import load_workbook
 # from flask import current_app
 # from typing import NamedTuple  #not to be confused with namedtuple in collections
 
