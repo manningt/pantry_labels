@@ -320,6 +320,14 @@ if __name__ == "__main__":
             print(status_string)
             report_strings.append(status_string)
 
+            # print(guest_list)
+            report_filename = filename.replace('.pdf', '.txt')
+            with open(f"{OUTPUT_DIRECTORY}/{report_filename}", "w") as f:
+               f.write(f"\n{report_filename}\n")
+               # f.write(f"  First       Last     Time     Bags\n")
+               for guest in guest_list:
+                  f.write(f"  {guest[0]:<12} {guest[1]:<12}     Time={guest[2]}     bags={guest[3]}\n")
+
    with open(f"{OUTPUT_DIRECTORY}/make_tags_report.txt", "w") as report_file:
       for line in report_strings:
          report_file.write(line + "\n")
