@@ -163,6 +163,11 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
    else:
       try:
          pdf = FPDF(orientation="L", unit="pt", format=(label_height,label_width))
+      except Exception as e:
+         status_string = f"Failure: could not create PDF for {out_pdf_path} exception: {e}"
+         return status_string
+      
+      try:
          pdf.set_margins(0, 18, 0) #left, top, right in points
          pdf.set_auto_page_break(auto=False)
          pdf.set_font("Helvetica", "B") # Arial not available in fpdf2
@@ -185,16 +190,19 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
                pdf.set_font_size(label_count_font_size)
                pdf.cell(cell_width, cell_height, f"{i+1} of {label_count}", align="R")
                number_of_labels += 1
+      except Exception as e:
+         status_string = f"Failure: while adding cells for {out_pdf_path} exception: {e}"
+         return status_string
+      
+      try:
          pdf.output(out_pdf_path)
          status_string = f"{filename} has {len(guest_list)} guests and {number_of_labels} labels."
-
-      except Exception as e:
-         # try:
          #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
-         # except:
+      except Exception as e:
          status_string = f"failed to generate {out_pdf_path} exception: {e}"
 
    return status_string
+
 
 def get_csv_files(directory):
     """
