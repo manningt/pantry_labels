@@ -155,32 +155,35 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
    label_height = 144 #points
    label_width = 288
    number_of_labels = 0
+   cell_width = 0
+   cell_height = 0
 
    if len(guest_list) == 0:
       status_string = f"Failure: no guests in the guest_list to generate {out_pdf_path}."
    else:
       try:
          pdf = FPDF(orientation="L", unit="pt", format=(label_height,label_width))
-         pdf.set_margins(0, 6, 0) #left, top, right in points
+         pdf.set_margins(0, 18, 0) #left, top, right in points
          pdf.set_auto_page_break(auto=False)
          pdf.set_font("Helvetica", "B") # Arial not available in fpdf2
          for row in guest_list:
             label_count = int(item_count_to_label_count(row[3]))
+            # print(f"  {row[0]} {row[1]} {row[2]} has {row[3]} items, which is {label_count} labels.")
             for i in range(label_count):
                pdf.add_page()
                # if row[2] is a time, then don't print it; only print if it's a route
                if type == DELIVERY_TYPE:
                   pdf.set_font_size(route_font_size)
-                  pdf.cell(0, None, f'{row[2].replace(" - ", ": ")}', align="L")
+                  pdf.cell(cell_width, cell_height, f'{row[2].replace(" - ", ": ")}', align="L")
                   pdf.line(0, 36, label_width, 36) # line from left to right
                pdf.ln(route_font_size+10)
                pdf.set_font_size(name_font_size)
-               pdf.cell(0, None, f"{row[0].title()}", align="C")
+               pdf.cell(cell_width, cell_height, f"{row[0].title()}", align="C")
                pdf.ln(name_font_size+4)
-               pdf.cell(0, None, f"{row[1][0:15].title()}", align="C")
+               pdf.cell(cell_width, cell_height, f"{row[1][0:15].title()}", align="C")
                pdf.ln(name_font_size+4)
                pdf.set_font_size(label_count_font_size)
-               pdf.cell(0, None, f"{i+1} of {label_count}", align="R")
+               pdf.cell(cell_width, cell_height, f"{i+1} of {label_count}", align="R")
                number_of_labels += 1
          pdf.output(out_pdf_path)
          status_string = f"{filename} has {len(guest_list)} guests and {number_of_labels} labels."
@@ -266,14 +269,14 @@ if __name__ == "__main__":
 
    # iterate through the file_list and find the Visits_with_Tallied_Inventory_Distribution file
    full_guest_dict = {}
-   string_in_item_count_filename = "Visit"
+   STRING_IN_ITEM_COUNT_FILENAME = "Visit"
    guest_filename_list = []
 
    for i in range(len(file_list)):
       file_list[i] = Path(file_list[i])
       if not file_list[i].is_file():
          sys.exit(f"file_path {i} is not a file.")
-      if str(file_list[i]).startswith(string_in_item_count_filename):
+      if str(file_list[i]).startswith(STRING_IN_ITEM_COUNT_FILENAME):
          full_guest_dict = make_full_guest_dict(file_list[i])
          if 0:
             print(f"{full_guest_dict=}")
