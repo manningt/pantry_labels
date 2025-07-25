@@ -37,6 +37,7 @@ The script also generates a report file make_tags_report.txt with the status of 
 '''
 
 import sys, os
+import glob
 try:
    import csv
    from fpdf import FPDF
@@ -204,17 +205,6 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
    return status_string
 
 
-def get_csv_files(directory):
-    """
-    Returns a list of CSV files in the specified directory.
-    """
-    csv_files = []
-    for filename in os.listdir(directory):
-        if filename.endswith(".csv"):
-            csv_files.append(os.path.join(directory, filename))
-    return csv_files
-
-
 def test_label_pdfs(out_pdf_path):
    route_font_size = 28 # allows longer names
    name_font_size = 36
@@ -239,6 +229,37 @@ def test_label_pdfs(out_pdf_path):
 
    except Exception as e:
       print(f"PDF for test_label failed: {e}")
+
+
+def process_files(file_list):
+   STRING_IN_ITEM_COUNT_FILENAME = "Tallied"
+   STRING_IN_DELIVERY_FILENAME = "Delivery"
+   STRING_IN_PICKUP_FILENAME = "Pickup"
+
+   item_count_index = None
+   delivery_index = None
+   pickup_index = None
+
+   for i in range(len(file_list)):
+      file_list[i] = Path(file_list[i])
+      if not file_list[i].is_file():
+         sys.exit(f"file_path {i} is not a file.")
+      if STRING_IN_ITEM_COUNT_FILENAME in file_list[i]:
+         item_count_index = i
+      elif STRING_IN_DELIVERY_FILENAME in file_list[i]:
+         delivery_index = i
+      elif STRING_IN_PICKUP_FILENAME in file_list[i]:
+         pickup_index = i
+      else:
+         print(f"Warning: '{file_list[i]}' does not match any expected file name.")
+
+   if item_count_index is None:
+      sys.exit("Failure: No 'Visits_with_Tallied_Inventory_Distribution' file found.")
+   else:
+      full_guest_dict = make_full_guest_dict(file_list[item_count_index])
+      if 0:
+         print(f"{full_guest_dict=}")
+         sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -272,7 +293,7 @@ if __name__ == "__main__":
 
    if len(file_list) == 0:
       print("Using current directory for CSV files.")
-      file_list = get_csv_files(".")
+      file_list = glob.glob('*.csv')
    # print(f"{file_list=}")
 
    # iterate through the file_list and find the Visits_with_Tallied_Inventory_Distribution file
