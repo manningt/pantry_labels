@@ -145,7 +145,7 @@ def item_count_to_label_count(item_count):
       if item_count > limits[i] and item_count <= limits[i+1]:
          return i + 1
 
-def make_label_pdfs(guest_list, type, out_pdf_path):
+def make_label_pdfs(guest_list, type, pdf_filename, output_directory="."):
 
    # PDF writing examples:
    #  https://medium.com/@mahijain9211/creating-a-python-class-for-generating-pdf-tables-from-a-pandas-dataframe-using-fpdf2-c0eb4b88355c
@@ -196,11 +196,12 @@ def make_label_pdfs(guest_list, type, out_pdf_path):
          return status_string
       
       try:
+         out_pdf_path = os.path.join(output_directory, pdf_filename)
          pdf.output(out_pdf_path)
-         status_string = f"{filename} has {len(guest_list)} guests and {number_of_labels} labels."
-         #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
+         status_string = f"{pdf_filename} has {len(guest_list)} guests and {number_of_labels} labels."
       except Exception as e:
-         status_string = f"failed to generate {out_pdf_path} exception: {e}"
+         #    current_app.logger.warning(f"PDF for {guest} failed: {e}")
+         status_string = f"failed to generate {pdf_filename} exception: {e}"
 
    return status_string
 
@@ -231,7 +232,24 @@ def test_label_pdfs(out_pdf_path):
       print(f"PDF for test_label failed: {e}")
 
 
-def process_files(file_list):
+def write_report_file(guest_list, report_filename, output_directory="."):
+   text_report_filename = report_filename.replace('.pdf', '.txt')
+   text_report_path = os.path.join(output_directory, report_filename.replace('.pdf', '.txt'))
+   try:
+      with open(text_report_path, "w") as f:
+         f.write(f"\n{text_report_filename}\n")
+         # f.write(f"  First       Last     Time     Bags\n")
+         for guest in guest_list:
+            f.write(f"  {guest[0]:<12} {guest[1]:<12}     Time={guest[2]}     bags={guest[3]}\n")
+   except Exception as e:
+      print(f"Failed to write report file {report_filename}: {e}")  
+
+
+def process_files(file_list, output_directory="."):
+
+   if not os.path.isdir(output_directory):
+      sys.exit(f"Failure: '{output_directory}' does not exists or is not a directory.")
+
    STRING_IN_ITEM_COUNT_FILENAME = "Tallied"
    STRING_IN_DELIVERY_FILENAME = "Delivery"
    STRING_IN_PICKUP_FILENAME = "Pickup"
@@ -240,26 +258,70 @@ def process_files(file_list):
    delivery_index = None
    pickup_index = None
 
+   full_guest_dict = {}
+   report_strings = []
+
    for i in range(len(file_list)):
       file_list[i] = Path(file_list[i])
       if not file_list[i].is_file():
          sys.exit(f"file_path {i} is not a file.")
-      if STRING_IN_ITEM_COUNT_FILENAME in file_list[i]:
+      if STRING_IN_ITEM_COUNT_FILENAME in file_list[i].name:
          item_count_index = i
-      elif STRING_IN_DELIVERY_FILENAME in file_list[i]:
+      elif STRING_IN_DELIVERY_FILENAME in file_list[i].name:
          delivery_index = i
-      elif STRING_IN_PICKUP_FILENAME in file_list[i]:
+      elif STRING_IN_PICKUP_FILENAME in file_list[i].name:
          pickup_index = i
       else:
          print(f"Warning: '{file_list[i]}' does not match any expected file name.")
 
+   if delivery_index is None and pickup_index is None:
+      sys.exit("Failure: Neither Delivery or Pickup csv files were found.")
+
    if item_count_index is None:
       sys.exit("Failure: No 'Visits_with_Tallied_Inventory_Distribution' file found.")
    else:
-      full_guest_dict = make_full_guest_dict(file_list[item_count_index])
+      full_guest_dict = make_full_guest_dict(file_list[item_count_index].name)
       if 0:
          print(f"{full_guest_dict=}")
          sys.exit(0)
+
+   if len(full_guest_dict) == 0:
+      sys.exit("Failure: 'Visits_with_Tallied_Inventory_Distribution.csv' had no guests.")
+
+   if delivery_index is not None:
+      delivery_filename = file_list[delivery_index].name
+      delivery_guest_list = make_guest_list(delivery_filename, full_guest_dict)
+      if len(delivery_guest_list) == 0:
+            status_string = f"Warning: no guests in {delivery_filename}."
+      else:
+         delivery_pdf_filename = f'tags-for-{STRING_IN_DELIVERY_FILENAME}.pdf'
+         status_string = make_label_pdfs(delivery_guest_list, DELIVERY_TYPE, delivery_pdf_filename, output_directory)
+         write_report_file(delivery_guest_list, delivery_pdf_filename, output_directory)
+      print(status_string)
+      report_strings.append(status_string)
+
+   if pickup_index is not None:
+      timeslots_dict = {
+         'Saturday': (7, 12),
+         'Friday-before-3': (12, 15),
+         'Friday-after-3': (15, 23)}
+      for timeslot, (start, end) in timeslots_dict.items():
+         pickup_pdf_filename = f'tags-for-{STRING_IN_PICKUP_FILENAME}-{timeslot}.pdf'
+         pickup_guest_list = make_guest_list(file_list[pickup_index].name, full_guest_dict, start_time=start, end_time=end)
+         if len(pickup_guest_list) == 0:
+            status_string = f"Warning: no guests in {pickup_pdf_filename}."
+         else:
+            pickup_guest_list.sort(key=lambda x: (x[1], x[0]))
+            status_string = make_label_pdfs(pickup_guest_list, type, pickup_pdf_filename, output_directory)
+            write_report_file(pickup_guest_list, pickup_pdf_filename, output_directory)
+         print(status_string)
+         report_strings.append(status_string)
+
+   text_report_path = os.path.join(output_directory, "make_tags_report.txt")
+   with open(text_report_path, "w") as report_file:
+      for line in report_strings:
+         report_file.write(line + "\n")
+
 
 
 if __name__ == "__main__":
@@ -296,70 +358,5 @@ if __name__ == "__main__":
       file_list = glob.glob('*.csv')
    # print(f"{file_list=}")
 
-   # iterate through the file_list and find the Visits_with_Tallied_Inventory_Distribution file
-   full_guest_dict = {}
-   STRING_IN_ITEM_COUNT_FILENAME = "Visit"
-   guest_filename_list = []
-
-   for i in range(len(file_list)):
-      file_list[i] = Path(file_list[i])
-      if not file_list[i].is_file():
-         sys.exit(f"file_path {i} is not a file.")
-      if str(file_list[i]).startswith(STRING_IN_ITEM_COUNT_FILENAME):
-         full_guest_dict = make_full_guest_dict(file_list[i])
-         if 0:
-            print(f"{full_guest_dict=}")
-            sys.exit(0)
-      else:
-         guest_filename_list.append(file_list[i])
-
-   if len(full_guest_dict) == 0:
-      sys.exit("Failure: Visits... file had no guests.")
-   if len(guest_filename_list) == 0:
-      sys.exit("Failure: No guest lists found. Please provide at least one guest list file.")
-   # print(f"{guest_filename_list=}")
-
-   # type can be 'delivery' or 'AM' or 'PM'
-   # AM and PM lists are sorted alphabetically by last name, then first name
-   OUTPUT_DIRECTORY = Path(".")
-   report_strings = []
-   for i in range(len(guest_filename_list)):
-      type = get_guest_list_type(guest_filename_list[i])
-      if type == DELIVERY_TYPE:
-         guest_list = make_guest_list(guest_filename_list[i], full_guest_dict)
-         filename = f'guest_list_{i}_{type}.pdf'
-         status_string = make_label_pdfs(guest_list, type, f"{OUTPUT_DIRECTORY}/{filename}")
-         print(status_string)
-         report_strings.append(status_string)
-      else:
-         for j in range(0,3):
-            if j == 0:
-               start = 7
-               end = 12
-               filename = f"guest_list_{i}_Pickup_Saturday.pdf"
-            elif j == 1:
-               start = 12
-               end = 15
-               filename = f"guest_list_{i}_Pickup_Friday_before_3.pdf"
-            else:
-               start = 15
-               end = 23
-               filename = f"guest_list_{i}_Pickup_Friday_after_3.pdf"
-
-            guest_list = make_guest_list(guest_filename_list[i], full_guest_dict, start_time=start, end_time=end)
-            guest_list.sort(key=lambda x: (x[1], x[0])) # sort by last name, then first name
-            status_string = make_label_pdfs(guest_list, type, f"{OUTPUT_DIRECTORY}/{filename}")
-            print(status_string)
-            report_strings.append(status_string)
-
-            # print(guest_list)
-            report_filename = filename.replace('.pdf', '.txt')
-            with open(f"{OUTPUT_DIRECTORY}/{report_filename}", "w") as f:
-               f.write(f"\n{report_filename}\n")
-               # f.write(f"  First       Last     Time     Bags\n")
-               for guest in guest_list:
-                  f.write(f"  {guest[0]:<12} {guest[1]:<12}     Time={guest[2]}     bags={guest[3]}\n")
-
-   with open(f"{OUTPUT_DIRECTORY}/make_tags_report.txt", "w") as report_file:
-      for line in report_strings:
-         report_file.write(line + "\n")
+   process_files(file_list)
+   # process_files(file_list, output_directory="/tmp")
