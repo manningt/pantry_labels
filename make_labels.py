@@ -46,7 +46,6 @@ except Exception as e:
    sys.exit(1)
 
 import argparse
-from pathlib import Path
 
 # from flask import current_app
 # from typing import NamedTuple  #not to be confused with namedtuple in collections
@@ -81,6 +80,7 @@ def make_full_guest_dict(in_filename):
          # if row_count == 3:
          #    break
    return guest_dict
+
 
 def get_guest_list_type(in_filename):
    # Determine if the guest list is for delivery or AM/PM pickup
@@ -137,6 +137,7 @@ def make_guest_list(in_filename, guest_dict, start_time=12, end_time=15):
          row_count += 1
    return guest_list
 
+
 def item_count_to_label_count(item_count):
    limits = [0, 9, 17, 25, 32, 40, 49,57,67,73,82,90,100,107,112,139,200]
    if item_count > 200:
@@ -144,6 +145,7 @@ def item_count_to_label_count(item_count):
    for i in range(len(limits)-1):
       if item_count > limits[i] and item_count <= limits[i+1]:
          return i + 1
+
 
 def make_label_pdfs(guest_list, type, pdf_filename, output_directory="."):
 
@@ -262,7 +264,7 @@ def process_files(file_list, output_directory="."):
    report_strings = []
 
    for i in range(len(file_list)):
-      if not Path(file_list[i]).is_file():
+      if not os.path.isfile(file_list[i]):
          sys.exit(f"{file_list[i]} is not a file.")
       if STRING_IN_ITEM_COUNT_FILENAME in file_list[i]:
          item_count_index = i
@@ -320,7 +322,6 @@ def process_files(file_list, output_directory="."):
    with open(text_report_path, "w") as report_file:
       for line in report_strings:
          report_file.write(line + "\n")
-
 
 
 if __name__ == "__main__":
