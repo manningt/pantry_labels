@@ -262,14 +262,13 @@ def process_files(file_list, output_directory="."):
    report_strings = []
 
    for i in range(len(file_list)):
-      file_list[i] = Path(file_list[i])
-      if not file_list[i].is_file():
-         sys.exit(f"file_path {i} is not a file.")
-      if STRING_IN_ITEM_COUNT_FILENAME in file_list[i].name:
+      if not Path(file_list[i]).is_file():
+         sys.exit(f"{file_list[i]} is not a file.")
+      if STRING_IN_ITEM_COUNT_FILENAME in file_list[i]:
          item_count_index = i
-      elif STRING_IN_DELIVERY_FILENAME in file_list[i].name:
+      elif STRING_IN_DELIVERY_FILENAME in file_list[i]:
          delivery_index = i
-      elif STRING_IN_PICKUP_FILENAME in file_list[i].name:
+      elif STRING_IN_PICKUP_FILENAME in file_list[i]:
          pickup_index = i
       else:
          print(f"Warning: '{file_list[i]}' does not match any expected file name.")
@@ -280,7 +279,7 @@ def process_files(file_list, output_directory="."):
    if item_count_index is None:
       sys.exit("Failure: No 'Visits_with_Tallied_Inventory_Distribution' file found.")
    else:
-      full_guest_dict = make_full_guest_dict(file_list[item_count_index].name)
+      full_guest_dict = make_full_guest_dict(file_list[item_count_index])
       if 0:
          print(f"{full_guest_dict=}")
          sys.exit(0)
@@ -289,7 +288,7 @@ def process_files(file_list, output_directory="."):
       sys.exit("Failure: 'Visits_with_Tallied_Inventory_Distribution.csv' had no guests.")
 
    if delivery_index is not None:
-      delivery_filename = file_list[delivery_index].name
+      delivery_filename = file_list[delivery_index]
       delivery_guest_list = make_guest_list(delivery_filename, full_guest_dict)
       if len(delivery_guest_list) == 0:
             status_string = f"Warning: no guests in {delivery_filename}."
@@ -307,7 +306,7 @@ def process_files(file_list, output_directory="."):
          'Friday-after-3': (15, 23)}
       for timeslot, (start, end) in timeslots_dict.items():
          pickup_pdf_filename = f'tags-for-{STRING_IN_PICKUP_FILENAME}-{timeslot}.pdf'
-         pickup_guest_list = make_guest_list(file_list[pickup_index].name, full_guest_dict, start_time=start, end_time=end)
+         pickup_guest_list = make_guest_list(file_list[pickup_index], full_guest_dict, start_time=start, end_time=end)
          if len(pickup_guest_list) == 0:
             status_string = f"Warning: no guests in {pickup_pdf_filename}."
          else:
